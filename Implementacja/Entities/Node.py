@@ -11,5 +11,8 @@ class Node:
     def is_leaf(self):
         return self.class_label is not None
 
-    def attach_connection(self, attribute_value):
+    def attach_child_connection(self, attribute_value):
         self.child_conn.append(Connection(self, attribute_value, None))
+
+    def attach_parent_connection(self, attribute_value, parent):
+        self.parent_conn = Connection(parent, attribute_value, self)
