@@ -28,21 +28,50 @@ class Node:
                 return {
                            "split_value": str(self.parent_conn.attribute_value),
                            "class_label": self.class_label,
-                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in enumerate(self.child_conn)}
+                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in
+                            enumerate(self.child_conn)}
             else:
                 return {
                            "class_label": self.class_label,
-                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in enumerate(self.child_conn)}
+                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in
+                            enumerate(self.child_conn)}
         else:
             if self.parent_conn is not None:
                 return {
                            "split_value": str(self.parent_conn.attribute_value),
                            "split_crit": self.split_crit,
-                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in enumerate(self.child_conn)}
+                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in
+                            enumerate(self.child_conn)}
             else:
                 return {
                            "split_crit": self.split_crit,
-                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in enumerate(self.child_conn)}
+                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in
+                            enumerate(self.child_conn)}
 
     def to_dict(self):
         return self.__dict__()
+
+    def predict(self, sample):
+        if self.is_leaf():
+            return self.class_label
+        else:
+            val = sample[self.split_crit]
+            for conn in self.child_conn:
+                if conn.attribute_value == val:
+                    return conn.child_node.predict(sample)
+            # if we are here, there was not an exact match found for the sample :(
+            # return the the most common class among subtrees
+            class_list = []
+            self.get_list_of_possible_classes(class_list)
+            return max(set(class_list), key=class_list.count)
+
+    def get_list_of_possible_classes(self, class_list=None):
+        if class_list is None:
+            class_list = []
+
+        for conn in self.child_conn:
+            child = conn.child_node
+            if child.is_leaf():
+                class_list.append(child.class_label)
+            else:
+                self.get_list_of_possible_classes(class_list)

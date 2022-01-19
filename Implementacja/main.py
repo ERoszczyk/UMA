@@ -10,6 +10,7 @@ from Implementacja.Entities.Node import Node
 import scipy.stats
 from collections import Counter
 import json
+from random import randrange
 
 
 # S - Sample
@@ -134,13 +135,40 @@ def get_data_from_files(data_file, names_file):
     return [names_info, data]
 
 
+def get_training_and_eval_sets(data_file, names_file):
+    data = get_data_from_files(data_file, names_file)
+    df = data[1]
+    train_dataset = df.sample(frac=(4/7))  # random state is a seed value
+    test_dataset = df.drop(train_dataset.index)
+
+    return [train_dataset, test_dataset]
+
+
 if __name__ == '__main__':
-    read_data = get_data_from_files('../Data/Car/car.data.small', '../Data/Car/car.c45-names')
-    tree = generate_tree(read_data[1])
+    # read_data = get_data_from_files('../Data/Car/car.data.small', '../Data/Car/car.c45-names')
+    # read_data = get_data_from_files('../Data/adult/adult.data', '../Data/adult/adult.names')
+    data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names')
+    tree = generate_tree(data[0])
     tree_in_dict = tree.to_dict()
     tree_in_json = json.dumps(tree_in_dict)
     print(tree_in_json)
     print("Copy above line(json) to https://vanya.jp.net/vtree/")
-    with open('data.json', 'w') as f:
-        json.dump(tree_in_json, f, ensure_ascii=False, indent=4)
+
+    correct = 0
+    incorrect = 0
+    error = 0
+    error_samples = []
+    for index, row in data[1].iterrows():
+        try:
+            prediction = tree.predict(row)
+        except Exception as e:
+            error += 1
+            error_samples.append(row)
+            continue
+        if prediction == row['class']:
+            correct += 1
+        else:
+            incorrect += 1
+    print(f"Correct = {correct} | Incorrect = {incorrect} | Score = {correct / (correct + incorrect)}")
+
     print("============= FINISHED =============")
