@@ -74,4 +74,4 @@ class Node:
             if child.is_leaf():
                 class_list.append(child.class_label)
             else:
-                self.get_list_of_possible_classes(class_list)
+                child.get_list_of_possible_classes(class_list)

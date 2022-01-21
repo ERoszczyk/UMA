@@ -1,4 +1,6 @@
 import math
+import sys
+import threading
 from statistics import mode
 
 import pandas as pd
@@ -138,7 +140,7 @@ def get_data_from_files(data_file, names_file):
 def get_training_and_eval_sets(data_file, names_file):
     data = get_data_from_files(data_file, names_file)
     df = data[1]
-    train_dataset = df.sample(frac=(4/7))  # random state is a seed value
+    train_dataset = df.sample(frac=(4 / 7))  # random state is a seed value
     test_dataset = df.drop(train_dataset.index)
 
     return [train_dataset, test_dataset]
