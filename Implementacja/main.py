@@ -162,8 +162,6 @@ if __name__ == '__main__':
         try:
             prediction = tree.predict(row)
         except Exception as e:
-            print(row)
-            input()
             error += 1
             error_samples.append(row)
             continue

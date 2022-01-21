@@ -58,7 +58,7 @@ class Node:
             val = sample[self.split_crit]
             for conn in self.child_conn:
                 if conn.attribute_value == val:
-                    return conn.child_node._predict(sample)
+                    return conn.child_node.predict(sample)
             # if we are here, there was not an exact match found for the sample :(
             # return the the most common class among subtrees
             class_list = []
