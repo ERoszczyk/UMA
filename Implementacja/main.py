@@ -162,6 +162,8 @@ if __name__ == '__main__':
         try:
             prediction = tree.predict(row)
         except Exception as e:
+            print(row)
+            input()
             error += 1
             error_samples.append(row)
             continue
@@ -170,5 +172,5 @@ if __name__ == '__main__':
         else:
             incorrect += 1
     print(f"Correct = {correct} | Incorrect = {incorrect} | Score = {correct / (correct + incorrect)}")
-
+    print(f"Error = {error}")
     print("============= FINISHED =============")
