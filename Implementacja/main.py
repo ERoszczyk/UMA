@@ -2,7 +2,7 @@ import pandas as pd
 from Entities.Attribute import Attribute
 import json
 
-
+from Implementacja.Entities.Forest import Forest
 from Implementacja.Entities.Tree import Tree
 
 
@@ -41,15 +41,29 @@ def get_data_from_files(data_file, names_file):
 def get_training_and_eval_sets(data_file, names_file):
     data = get_data_from_files(data_file, names_file)
     df = data[1]
-    train_dataset = df.sample(frac=(4 / 7))  # random state is a seed value
+    train_dataset = df.sample(frac=(8 / 10))  # random state is a seed value
     test_dataset = df.drop(train_dataset.index)
 
     return [train_dataset, test_dataset]
 
 
-if __name__ == '__main__':
-    # read_data = get_data_from_files('../Data/Car/car.data.small', '../Data/Car/car.c45-names')
-    # read_data = get_data_from_files('../Data/adult/adult.data', '../Data/adult/adult.names')
+def attribute_ranking(no_trees=100):
+    data = get_data_from_files('../Data/Car/car.data', '../Data/Car/car.c45-names')[1]
+    attributes_ranking = {}
+    for column in data.columns:
+        if column != 'class':
+            attributes_ranking[column] = 0
+
+    for i in range(no_trees):
+        split_dataset = data.sample(frac=(4 / 7))
+        tree = Tree(split_dataset)
+        tree.root = tree.generate_tree(tree.S, attributes_ranking)
+
+    attributes_ranking = sorted(attributes_ranking.items(), key=lambda x: x[1], reverse=True)
+    print(attributes_ranking)
+
+
+def main_task_for_tree():
     data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names')
     tree = Tree(data[0])
     tree.root = tree.generate_tree(tree.S)
@@ -57,14 +71,24 @@ if __name__ == '__main__':
     tree_in_json = json.dumps(tree_in_dict)
     print(tree_in_json)
     print("Copy above line(json) to https://vanya.jp.net/vtree/")
+    get_prediction_results(tree, data[1])
 
+
+def main_task_for_forest():
+    data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names')
+    forest = Forest(100)
+    forest.generate_forest(data[0])
+    get_prediction_results(forest, data[1])
+
+
+def get_prediction_results(predicting_obj, test_data):
     correct = 0
     incorrect = 0
     error = 0
     error_samples = []
-    for index, row in data[1].iterrows():
+    for index, row in test_data.iterrows():
         try:
-            prediction = tree.predict(row)
+            prediction = predicting_obj.predict(row)
         except Exception as e:
             error += 1
             error_samples.append(row)
@@ -76,3 +100,8 @@ if __name__ == '__main__':
     print(f"Correct = {correct} | Incorrect = {incorrect} | Score = {correct / (correct + incorrect)}")
     print(f"Error = {error}")
     print("============= FINISHED =============")
+
+
+if __name__ == '__main__':
+    for i in range(10):
+        attribute_ranking(no_trees=1000)
