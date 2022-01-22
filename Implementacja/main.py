@@ -1,108 +1,9 @@
-import math
-import sys
-import threading
-from statistics import mode
-
 import pandas as pd
-import numpy as np
-from pandas import unique
-
-from Implementacja.Entities.Attribute import Attribute
-from Implementacja.Entities.Node import Node
-import scipy.stats
-from collections import Counter
+from Entities.Attribute import Attribute
 import json
-from random import randrange
 
 
-# S - Sample
-# A - in S
-def generate_tree(S):
-    N = Node(parent_conn=None)
-    if all_samples_of_same_class(S):
-        class_name = S.iloc[0]["class"]
-        return Node(parent_conn=None, class_label=class_name)
-    if all_attributes_the_same_or_empty(S):
-        return Node(parent_conn=None, class_label=find_most_common_class(S))
-    n = attribute_selection_method(S)
-    for value in unique(S.iloc[:, n]):
-        N.split_crit = S.columns[n]
-        # subset with an equal a_n value to "value"
-        column_name = S.columns[n]
-        S_n = S[S[column_name] == value]
-        if S_n.empty:
-            attach_a_leaf(S, N, value)
-        else:
-            attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, value)
-    return N
-
-
-def all_samples_of_same_class(S):
-    return all(S.iloc[0]["class"] == row["class"] for index, row in S.iterrows())
-
-
-def all_attributes_the_same_or_empty(S):
-    if S.shape[0] == 0:
-        return True
-    for column in S.columns[1:]:
-        attributes_in_column = S[column]
-        attr = attributes_in_column.iloc[0]
-        if not all(attr == x for x in attributes_in_column):
-            return False
-    # if all columns were checked then all attributes are equal
-    return True
-
-
-def find_most_common_class(S):
-    # if two have same count pick first
-    li = []
-    for val in S.iloc[:, -1:].values:
-        li.append(val[0])
-    return max(set(li), key=li.count)
-
-
-def attribute_selection_method(S):
-    entropy_list = []
-    for column in S:
-        if column != 'class':
-            entropy_list.append(entropy(S[column].values))
-    return entropy_list.index(min(entropy_list))
-
-
-# copied from https://stackoverflow.com/questions/15450192/fastest-way-to-compute-entropy-in-python
-def entropy(data, unit='natural'):
-    base = {
-        'shannon': 2.,
-        'natural': math.exp(1),
-        'hartley': 10.
-    }
-
-    if len(data) <= 1:
-        return 0
-
-    counts = Counter()
-
-    for d in data:
-        counts[d] += 1
-
-    ent = 0
-
-    probs = [float(c) / len(data) for c in counts.values()]
-    for p in probs:
-        if p > 0.:
-            ent -= p * math.log(p, base[unit])
-
-    return ent
-
-
-def attach_a_leaf(S, N, attribute_value):
-    child = Node(parent_conn=None, class_label=find_most_common_class(S))
-    N.attach_a_child(attribute_value, child)
-
-
-def attach_a_child(S_n, N, attribute_value):
-    child = generate_tree(S_n)
-    N.attach_a_child(attribute_value, child)
+from Implementacja.Entities.Tree import Tree
 
 
 def read_classes_and_attributes(filepath):
@@ -150,7 +51,8 @@ if __name__ == '__main__':
     # read_data = get_data_from_files('../Data/Car/car.data.small', '../Data/Car/car.c45-names')
     # read_data = get_data_from_files('../Data/adult/adult.data', '../Data/adult/adult.names')
     data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names')
-    tree = generate_tree(data[0])
+    tree = Tree(data[0])
+    tree.root = tree.generate_tree(tree.S)
     tree_in_dict = tree.to_dict()
     tree_in_json = json.dumps(tree_in_dict)
     print(tree_in_json)
