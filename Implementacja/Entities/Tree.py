@@ -34,6 +34,7 @@ def attach_a_leaf(S, N, attribute_value):
     N.attach_a_child(attribute_value, child)
 
 
+# copied from https://stackoverflow.com/questions/15450192/fastest-way-to-compute-entropy-in-python
 def entropy(data, unit='natural'):
     base = {
         'shannon': 2.,
@@ -72,7 +73,7 @@ class Tree:
         self.S = S
         self.root = None
 
-    def generate_tree(self, S):
+    def generate_tree(self, S, attribute_dict=None):
         N = Node(parent_conn=None)
         if all_samples_of_same_class(S):
             class_name = S.iloc[0]["class"]
@@ -80,6 +81,8 @@ class Tree:
         if all_attributes_the_same_or_empty(S):
             return Node(parent_conn=None, class_label=find_most_common_class(S))
         n = attribute_selection_method(S)
+        if attribute_dict is not None:
+            attribute_dict[S.columns[n]] += S.shape[0]
         for value in unique(S.iloc[:, n]):
             N.split_crit = S.columns[n]
             # subset with an equal a_n value to "value"
@@ -88,13 +91,11 @@ class Tree:
             if S_n.empty:
                 attach_a_leaf(S, N, value)
             else:
-                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, value)
+                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, value, attribute_dict=attribute_dict)
         return N
 
-    # copied from https://stackoverflow.com/questions/15450192/fastest-way-to-compute-entropy-in-python
-
-    def attach_a_child(self, S_n, N, attribute_value):
-        child = self.generate_tree(S_n)
+    def attach_a_child(self, S_n, N, attribute_value, attribute_dict=None):
+        child = self.generate_tree(S_n, attribute_dict=attribute_dict)
         N.attach_a_child(attribute_value, child)
 
     def __dict__(self):
