@@ -1,6 +1,6 @@
-from Implementacja.Entities.Node import Node
+from Entities.Node import Node
 import math
-
+from statistics import median
 from pandas import unique
 from collections import Counter
 
@@ -72,23 +72,34 @@ class Tree:
         self.S = S
         self.root = None
 
-    def generate_tree(self, S):
+    def generate_tree(self, S, cont_val = None):
         N = Node(parent_conn=None)
         if all_samples_of_same_class(S):
+            print(S.iloc[0]["class"])
             class_name = S.iloc[0]["class"]
             return Node(parent_conn=None, class_label=class_name)
         if all_attributes_the_same_or_empty(S):
             return Node(parent_conn=None, class_label=find_most_common_class(S))
         n = attribute_selection_method(S)
-        for value in unique(S.iloc[:, n]):
-            N.split_crit = S.columns[n]
-            # subset with an equal a_n value to "value"
+        if cont_val is None or S.columns[n] not in cont_val:
+            for value in unique(S.iloc[:, n]):
+                N.split_crit = S.columns[n]
+                # subset with an equal a_n value to "value"
+                column_name = S.columns[n]
+                S_n = S[S[column_name] == value]
+                if S_n.empty:
+                    attach_a_leaf(S, N, value)
+                else:
+                    self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, value)
+        else:
             column_name = S.columns[n]
-            S_n = S[S[column_name] == value]
-            if S_n.empty:
-                attach_a_leaf(S, N, value)
-            else:
-                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, value)
+            N.split_crit = column_name
+            values_median = median(S[column_name].values)
+            # subset with an equal a_n value to "value"
+            S_h = S[S[column_name] >= values_median]
+            S_l = S[S[column_name] < values_median]
+            self.attach_a_child(S_h.drop(S_h.columns[n], axis=1), N, f'>= {values_median}')
+            self.attach_a_child(S_l.drop(S_l.columns[n], axis=1), N, f'< {values_median}')
         return N
 
     # copied from https://stackoverflow.com/questions/15450192/fastest-way-to-compute-entropy-in-python

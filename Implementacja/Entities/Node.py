@@ -1,4 +1,4 @@
-from Implementacja.Entities.Connection import Connection
+from Entities.Connection import Connection
 
 
 class Node:
