@@ -51,14 +51,29 @@ class Node:
     def to_dict(self):
         return self.__dict__()
 
-    def predict(self, sample):
+    def predict(self, sample, continuous_attributes):
         if self.is_leaf():
             return self.class_label
         else:
             val = sample[self.split_crit]
-            for conn in self.child_conn:
-                if conn.attribute_value == val:
-                    return conn.child_node.predict(sample)
+            if self.split_crit not in continuous_attributes:
+                for conn in self.child_conn:
+                    if conn.attribute_value == val:
+                        return conn.child_node.predict(sample, continuous_attributes)
+            else:
+                for conn in self.child_conn:
+                    threshold = conn.attribute_value
+                    # more
+                    if threshold[0] == ">":
+                        value = float(threshold[1:])
+                        if val > value:
+                            return conn.child_node.predict(sample, continuous_attributes)
+                    # less
+                    else:
+                        value = float(threshold[2:])
+                        if val <= value:
+                            return conn.child_node.predict(sample, continuous_attributes)
+
             # if we are here, there was not an exact match found for the sample :(
             # return the the most common class among subtrees
             class_list = []
