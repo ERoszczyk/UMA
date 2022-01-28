@@ -2,8 +2,8 @@ from Implementacja.Entities.Node import Node
 import math
 
 from pandas import unique
+from statistics import median
 from collections import Counter
-
 
 def all_samples_of_same_class(S):
     return all(S.iloc[0]["class"] == row["class"] for index, row in S.iterrows())
@@ -35,7 +35,7 @@ def attach_a_leaf(S, N, attribute_value):
 
 
 # copied from https://stackoverflow.com/questions/15450192/fastest-way-to-compute-entropy-in-python
-def entropy(data, unit='natural'):
+def entropy(data, unit='shannon'):
     base = {
         'shannon': 2.,
         'natural': math.exp(1),
@@ -60,18 +60,11 @@ def entropy(data, unit='natural'):
     return ent
 
 
-def attribute_selection_method(S):
-    entropy_list = []
-    for column in S:
-        if column != 'class':
-            entropy_list.append(entropy(S[column].values))
-    return entropy_list.index(min(entropy_list))
-
-
 class Tree:
-    def __init__(self, S):
+    def __init__(self, S, continuous_attributes=[]):
         self.S = S
         self.root = None
+        self.continuous_attributes = continuous_attributes
 
     def generate_tree(self, S, attribute_dict=None):
         N = Node(parent_conn=None)
@@ -80,23 +73,85 @@ class Tree:
             return Node(parent_conn=None, class_label=class_name)
         if all_attributes_the_same_or_empty(S):
             return Node(parent_conn=None, class_label=find_most_common_class(S))
-        n = attribute_selection_method(S)
+        n = self.attribute_selection_method(S)
         if attribute_dict is not None:
             attribute_dict[S.columns[n]] += S.shape[0]
-        for value in unique(S.iloc[:, n]):
-            N.split_crit = S.columns[n]
-            # subset with an equal a_n value to "value"
+
+        if S.columns[n] not in self.continuous_attributes:
+            for value in unique(S.iloc[:, n]):
+                N.split_crit = S.columns[n]
+                # subset with an equal a_n value to "value"
+                column_name = S.columns[n]
+                S_n = S[S[column_name] == value]
+                if S_n.empty:
+                    attach_a_leaf(S, N, value)
+                else:
+                    self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, value, attribute_dict=attribute_dict)
+
+        else:
+            split_value = median(S.iloc[:, n])
             column_name = S.columns[n]
-            S_n = S[S[column_name] == value]
+            N.split_crit = column_name
+
+            # attach a child for bigger values
+            S_n = S[S[column_name] > split_value]
             if S_n.empty:
-                attach_a_leaf(S, N, value)
+                attach_a_leaf(S, N, f">{split_value}")
             else:
-                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, value, attribute_dict=attribute_dict)
+                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, f">{split_value}", attribute_dict=attribute_dict)
+
+            # attach a child for smaller values
+            S_n = S[S[column_name] <= split_value]
+            if S_n.empty:
+                attach_a_leaf(S, N, split_value)
+            else:
+                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, f"<={split_value}", attribute_dict=attribute_dict)
+
         return N
 
     def attach_a_child(self, S_n, N, attribute_value, attribute_dict=None):
         child = self.generate_tree(S_n, attribute_dict=attribute_dict)
         N.attach_a_child(attribute_value, child)
+
+    def attribute_selection_method(self, S):
+        entropy_list = []
+
+        for column in S:
+            if column != 'class':
+                if column not in self.continuous_attributes:
+                    operation_array = S[column].values.tolist()
+                else:
+                    split_value = median(S[column].values.tolist())
+                    simple_attrs = []
+                    for val in S[column].values.tolist():
+                        if val > split_value:
+                            simple_attrs.append("+")
+                        else:
+                            simple_attrs.append("-")
+                    operation_array = simple_attrs
+
+                val_dict = {}
+                for (val, class_) in zip(operation_array, S['class']):
+                    if val not in val_dict:
+                        val_dict[val] = []
+                    val_dict[val].append(class_)
+
+                ent_t = 0
+                for attr in val_dict:
+                    ent_i = 0
+                    total = len(val_dict[attr])
+                    counter = Counter(val_dict[attr])
+                    for key in counter:
+                        p = (counter[key] / total)
+                        ent_i -= p * math.log(p, 2.) * total
+                    ent_t += ent_i
+                ent_t /= len(operation_array)
+                entropy_list.append(ent_t)
+
+        # for column in S:
+        #     if column != 'class':
+        #         entropy_list.append(entropy(S[column].values))
+        return entropy_list.index(min(entropy_list))
 
     def __dict__(self):
         return self.root.to_dict()
@@ -105,4 +160,4 @@ class Tree:
         return self.__dict__()
 
     def predict(self, sample):
-        return self.root.predict(sample)
+        return self.root.predict(sample, self.continuous_attributes)
