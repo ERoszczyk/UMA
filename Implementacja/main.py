@@ -45,7 +45,7 @@ def get_data_from_files(data_file, names_file):
     return [names_info, data]
 
 
-def get_training_and_eval_sets(data_file, names_file, frac_arg=(4/7)):
+def get_training_and_eval_sets(data_file, names_file, frac_arg=(4 / 7)):
     data = get_data_from_files(data_file, names_file)
     continuous_attributes = data[0][3]
     df = data[1]
@@ -63,14 +63,16 @@ def prepare_data(df, continuous_attributes):
         attributes_in_column = df[column].values.tolist()
 
         if None in attributes_in_column:
-            dataframe = dataframe.replace({column: None}, find_most_common_value_in_column(df, column, continuous_attributes))
+            dataframe = dataframe.replace({column: None},
+                                          find_most_common_value_in_column(df, column, continuous_attributes))
 
         if " ?" in attributes_in_column:
             name = find_most_common_value_in_column(df, column, continuous_attributes)
             dataframe = dataframe.replace({column: " ?"}, name)
 
         if " " in attributes_in_column:
-            dataframe = dataframe.replace({column: " "}, find_most_common_value_in_column(df, column, continuous_attributes))
+            dataframe = dataframe.replace({column: " "},
+                                          find_most_common_value_in_column(df, column, continuous_attributes))
 
     return dataframe
 
@@ -87,6 +89,12 @@ def check_for_incomplete_data(df):
     #     print("All data in df is complete!")
 
 
+def randomly_permute_column(df, column_name):
+    df_copy = df.copy()
+    df_copy[column_name] = np.random.permutation(df_copy[column_name])
+    return df_copy
+
+
 def find_most_common_value_in_column(df, column_name, continuous_attributes):
     # if two have same count pick first
     li = df[column_name].values.tolist()
@@ -96,7 +104,7 @@ def find_most_common_value_in_column(df, column_name, continuous_attributes):
         return mean(list(map(int, li)))
 
 
-def attribute_ranking(data_file, names_file, no_trees=100):
+def attribute_ranking_by_count(data_file, names_file, no_trees=100):
     data = get_training_and_eval_sets(data_file, names_file, frac_arg=1)
     # data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=1)
     continuous_attributes = data[2]
@@ -115,9 +123,49 @@ def attribute_ranking(data_file, names_file, no_trees=100):
     print(attributes_ranking)
 
 
+def attribute_ranking_by_attribute_poisoning(data_file, names_file, no_trees=100):
+    data = get_training_and_eval_sets(data_file, names_file, frac_arg=(8 / 10))
+    # data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=1)
+    continuous_attributes = data[2]
+    train_data = data[0]
+    test_data = data[1]
+    attributes_ranking = {}
+    trained_models = []
+    # train no_trees models
+    for model_index in range(no_trees):
+        split_dataset = train_data.sample(frac=(1 / 10), random_state=np.random.RandomState())
+        tree = Tree(split_dataset, continuous_attributes)
+        tree.root = tree.generate_tree(tree.S)
+        trained_models.append(tree)
+
+    # check on control sample
+    control_sample_results = []
+    for tree in trained_models:
+        control_sample_results.append(get_prediction_results(tree, test_data, if_print=False))
+    # print(f"=== RESULTS FOR CONTROL SAMPLE ===")
+    # print(f"min = {min(control_sample_results)} | mean = {mean(control_sample_results)} |"
+    #       f" max = {max(control_sample_results)}")
+    attributes_ranking['control'] = mean(control_sample_results)
+    mean_results = []
+    for column in train_data.columns:
+        if column != 'class':
+            poisoned_test_df = randomly_permute_column(test_data, column)
+            attribute_poison_results = []
+            for tree in trained_models:
+                attribute_poison_results.append(get_prediction_results(tree, poisoned_test_df, if_print=False))
+            # print(f"=== RESULTS FOR TEST SAMPLE FOR ATTRIBUTE: {column} ===")
+            # print(
+            #     f"min = {min(attribute_poison_results)} | mean = {mean(attribute_poison_results)} |"
+            #     f" max = {max(attribute_poison_results)}")
+            attributes_ranking[column] = mean(attribute_poison_results)
+
+    attributes_ranking = sorted(attributes_ranking.items(), key=lambda x: x[1], reverse=True)
+    print(attributes_ranking)
+
+
 def main_task_for_tree():
     data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names', frac_arg=0.8)
-    #data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=0.8)
+    # data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=0.8)
     continuous_attributes = data[2]
     tree = Tree(data[0], continuous_attributes)
     tree.root = tree.generate_tree(tree.S)
@@ -135,7 +183,7 @@ def main_task_for_forest():
     get_prediction_results(forest, data[1])
 
 
-def get_prediction_results(predicting_obj, test_data):
+def get_prediction_results(predicting_obj, test_data, if_print=True):
     correct = 0
     incorrect = 0
     error = 0
@@ -151,16 +199,28 @@ def get_prediction_results(predicting_obj, test_data):
             correct += 1
         else:
             incorrect += 1
-    print(f"Correct = {correct} | Incorrect = {incorrect} | Score = {correct / (correct + incorrect)}")
-    print(f"Error = {error}")
-    print("============= FINISHED =============")
+    if if_print:
+        print(f"Correct = {correct} | Incorrect = {incorrect} | Score = {correct / (correct + incorrect)}")
+        print(f"Error = {error}")
+        print("============= FINISHED =============")
+    return correct / (correct + incorrect)
 
 
 if __name__ == '__main__':
     print("=============================== ATTRIBUTE RANKING FOR CAR DATABASE ===============================")
     for i in range(10):
-        attribute_ranking('../Data/Car/car.data', '../Data/Car/car.c45-names', no_trees=1000)
+        attribute_ranking_by_count('../Data/Car/car.data', '../Data/Car/car.c45-names', no_trees=1000)
 
     print("=============================== ATTRIBUTE RANKING FOR ADULT DATABASE ===============================")
     for i in range(10):
-        attribute_ranking('../Data/adult/adult.data', '../Data/adult/adult.names', no_trees=1000)
+        attribute_ranking_by_count('../Data/adult/adult.data', '../Data/adult/adult.names', no_trees=1000)
+    # print("=============================== ATTRIBUTE RANKING BY POISONING FOR CAR DATABASE"
+    #       " ===============================")
+    # for i in range(10):
+    #     attribute_ranking_by_attribute_poisoning('../Data/Car/car.data', '../Data/Car/car.c45-names', no_trees=1000)
+    #
+    # print("=============================== ATTRIBUTE RANKING BY POISONING FOR ADULT DATABASE"
+    #       " ===============================")
+    # for i in range(10):
+    #     attribute_ranking_by_attribute_poisoning('../Data/adult/adult.data', '../Data/adult/adult.names', no_trees=1000)
+
