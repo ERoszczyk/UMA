@@ -70,7 +70,8 @@ def prepare_data(df, continuous_attributes):
 
         if " ?" in attributes_in_column:
             name = find_most_common_value_in_column(df, column, continuous_attributes)
-            dataframe = dataframe.replace({column: " ?"}, name)
+            dataframe = dataframe.replace({column: " ?"}, name) # np.nan)
+            # dataframe.dropna(subset=[column], inplace=True)
 
         if " " in attributes_in_column:
             dataframe = dataframe.replace({column: " "},
@@ -151,8 +152,8 @@ def attribute_ranking_by_attribute_poisoning(data_file, names_file, no_trees=100
 
 
 def main_task_for_tree():
-    data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names', frac_arg=(4 / 7))
-    # data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=(8/10))
+    # data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names', frac_arg=(4 / 7))
+    data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=(8 / 10))
     continuous_attributes = data[2]
     tree = Tree(data[0], continuous_attributes)
     tree.root = tree.generate_tree(tree.S)
@@ -203,7 +204,7 @@ def get_prediction_results(predicting_obj, test_data, if_print=True):
                 FN[row['class']] = 0
             FN[row['class']] += 1
 
-            if not prediction in FP:
+            if prediction not in FP:
                 FP[prediction] = 0
             FP[prediction] += 1
     if if_print:
