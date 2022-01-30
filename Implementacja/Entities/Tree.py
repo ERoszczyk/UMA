@@ -5,6 +5,7 @@ from pandas import unique
 from statistics import median
 from collections import Counter
 
+
 def all_samples_of_same_class(S):
     return all(S.iloc[0]["class"] == row["class"] for index, row in S.iterrows())
 
@@ -98,14 +99,16 @@ class Tree:
             if S_n.empty:
                 attach_a_leaf(S, N, f">{split_value}")
             else:
-                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, f">{split_value}", attribute_dict=attribute_dict)
+                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, f">{split_value}",
+                                    attribute_dict=attribute_dict)
 
             # attach a child for smaller values
             S_n = S[S[column_name] <= split_value]
             if S_n.empty:
                 attach_a_leaf(S, N, split_value)
             else:
-                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, f"<={split_value}", attribute_dict=attribute_dict)
+                self.attach_a_child(S_n.drop(S_n.columns[n], axis=1), N, f"<={split_value}",
+                                    attribute_dict=attribute_dict)
 
         return N
 

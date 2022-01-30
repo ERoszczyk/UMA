@@ -80,15 +80,10 @@ def prepare_data(df, continuous_attributes):
 
 
 def check_for_incomplete_data(df):
-    positive = False
     for column in df.columns[1:]:
         attributes_in_column = df[column].values.tolist()
         if None in attributes_in_column or " ?" in attributes_in_column or " " in attributes_in_column:
-            positive = True
             print(f"INCOMPLETE DATA IN COLUMN: {column}")
-
-    # if not positive:
-    #     print("All data in df is complete!")
 
 
 def randomly_permute_column(df, column_name):
@@ -156,7 +151,7 @@ def attribute_ranking_by_attribute_poisoning(data_file, names_file, no_trees=100
 
 
 def main_task_for_tree():
-    data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names', frac_arg=(4/7))
+    data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names', frac_arg=(4 / 7))
     # data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=(8/10))
     continuous_attributes = data[2]
     tree = Tree(data[0], continuous_attributes)
@@ -220,65 +215,23 @@ def get_prediction_results(predicting_obj, test_data, if_print=True):
             FP_i = FP[key]
             TN_i = TN[key]
             print(f"        TP = {TP_i} | FN = {FN_i} | FP = {FP_i} | TN = {TN_i}")
-            print(f"        TPR = {TP_i/(TP_i + FN_i)}")
-            print(f"        TNR = {TN_i/(TN_i + FP_i)}")
-            print(f"        PPV = {TP_i/(TP_i + FP_i)}")
+            print(f"        TPR = {TP_i / (TP_i + FN_i)}")
+            print(f"        TNR = {TN_i / (TN_i + FP_i)}")
+            print(f"        PPV = {TP_i / (TP_i + FP_i)}")
             print(f"        ACC = {(TP_i + TN_i) / (TP_i + TN_i + FP_i + FN_i)}")
-            print(f"        F1 = {2*TP_i/(2*TP_i + FP_i + FN_i)}")
+            print(f"        F1 = {2 * TP_i / (2 * TP_i + FP_i + FN_i)}")
         print(f" Error = {error}")
         print("============= FINISHED =============")
     return correct / (correct + incorrect)
 
 
-def calculate_timing_performance(bins):
-    # first for discrete data
-    data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names', frac_arg=1)
-    df = data[0]
-    test_data = df.head(100)
-    elapsed_creation_time_cars = {}
-    elapsed_prediction_time_cars = {}
-    bin_size = df.shape[0] / bins
-    for i in range(bins):
-        frac = (i + 1) / bin_size
-        if frac > 1:
-            frac = 1
-        train_data = df.sample(frac=frac, random_state=np.random.RandomState())
-        start = timer()
-        tree = Tree(train_data)
-        tree.root = tree.generate_tree(tree.S)
-        end = timer()
-        elapsed_creation_time_cars[train_data.shape[0]] = end - start
-        elapsed_time = 0
-        for index, row in test_data.iterrows():
-            start = timer()
-            tree.predict(row)
-            end = timer()
-            elapsed_time += end - start
-        elapsed_prediction_time_cars[train_data.shape[0]] = elapsed_time
-
-    lists = sorted(elapsed_creation_time_cars.items())  # sorted by key, return a list of tuples
-    x, y = zip(*lists)  # unpack a list of pairs into two tuples
-
-    plt.plot(x, y)
-    plt.xlabel("Training set size")
-    plt.ylabel("Tree generation time")
-    plt.show()
-
-    lists = sorted(elapsed_prediction_time_cars.items())  # sorted by key, return a list of tuples
-
-    x, y = zip(*lists)  # unpack a list of pairs into two tuples
-
-    plt.plot(x, y)
-    plt.xlabel("Training set size")
-    plt.ylabel("Sample prediction time")
-    plt.show()
-
-    data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=1)
+def calculate_timing_performance(bins, data_file, names_file):
+    data = get_training_and_eval_sets(data_file, names_file, frac_arg=1)
     continuous_attributes = data[2]
     df = data[0]
     test_data = df.head(100)
-    elapsed_creation_time_adult = {}
-    elapsed_prediction_time_adult = {}
+    elapsed_creation_time = {}
+    elapsed_prediction_time = {}
     bin_size = df.shape[0] / bins
     for i in range(bins):
         frac = (i + 1) / bin_size
@@ -289,16 +242,16 @@ def calculate_timing_performance(bins):
         tree = Tree(train_data, continuous_attributes)
         tree.root = tree.generate_tree(tree.S)
         end = timer()
-        elapsed_creation_time_adult[train_data.shape[0]] = end - start
+        elapsed_creation_time[train_data.shape[0]] = end - start
         elapsed_time = 0
         for index, row in test_data.iterrows():
             start = timer()
             tree.predict(row)
             end = timer()
             elapsed_time += end - start
-        elapsed_prediction_time_adult[train_data.shape[0]] = elapsed_time
+        elapsed_prediction_time[train_data.shape[0]] = elapsed_time
 
-    lists = sorted(elapsed_creation_time_adult.items())  # sorted by key, return a list of tuples
+    lists = sorted(elapsed_creation_time.items())  # sorted by key, return a list of tuples
     x, y = zip(*lists)  # unpack a list of pairs into two tuples
 
     plt.plot(x, y)
@@ -306,7 +259,7 @@ def calculate_timing_performance(bins):
     plt.ylabel("Tree generation time")
     plt.show()
 
-    lists = sorted(elapsed_prediction_time_adult.items())  # sorted by key, return a list of tuples
+    lists = sorted(elapsed_prediction_time.items())  # sorted by key, return a list of tuples
 
     x, y = zip(*lists)  # unpack a list of pairs into two tuples
 
@@ -315,13 +268,12 @@ def calculate_timing_performance(bins):
     plt.ylabel("Sample prediction time")
     plt.show()
 
-    return [elapsed_creation_time_cars, elapsed_prediction_time_cars,
-            elapsed_creation_time_adult, elapsed_prediction_time_adult]
+    return [elapsed_creation_time, elapsed_prediction_time]
 
 
 if __name__ == '__main__':
     main_task_for_tree()
-#calculate_timing_performance(100)
+# calculate_timing_performance(100)
 # print("=============================== ATTRIBUTE RANKING FOR CAR DATABASE ===============================")
 # for i in range(10):
 #     attribute_ranking_by_count('../Data/Car/car.data', '../Data/Car/car.c45-names', no_trees=1000)
