@@ -35,7 +35,7 @@ def attach_a_leaf(S, N, attribute_value):
 
 
 # copied from https://stackoverflow.com/questions/15450192/fastest-way-to-compute-entropy-in-python
-def entropy(data, unit='shannon'):
+def entropy(data, unit='natural'):
     base = {
         'shannon': 2.,
         'natural': math.exp(1),
@@ -161,3 +161,6 @@ class Tree:
 
     def predict(self, sample):
         return self.root.predict(sample, self.continuous_attributes)
+
+    def list_of_possible_classes(self):
+        return self.S['class'].unique().tolist()

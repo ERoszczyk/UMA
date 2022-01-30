@@ -28,24 +28,24 @@ class Node:
                 return {
                            "split_value": str(self.parent_conn.attribute_value),
                            "class_label": self.class_label,
-                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in
+                       } | {f"child{i}": child_conn.child_node.to_dict() for i, child_conn in
                             enumerate(self.child_conn)}
             else:
                 return {
                            "class_label": self.class_label,
-                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in
+                       } | {f"child{i}": child_conn.child_node.to_dict() for i, child_conn in
                             enumerate(self.child_conn)}
         else:
             if self.parent_conn is not None:
                 return {
                            "split_value": str(self.parent_conn.attribute_value),
                            "split_crit": self.split_crit,
-                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in
+                       } | {f"child{i}": child_conn.child_node.to_dict() for i, child_conn in
                             enumerate(self.child_conn)}
             else:
                 return {
                            "split_crit": self.split_crit,
-                       } | {f"children{i}": child_conn.child_node.to_dict() for i, child_conn in
+                       } | {f"child{i}": child_conn.child_node.to_dict() for i, child_conn in
                             enumerate(self.child_conn)}
 
     def to_dict(self):

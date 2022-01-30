@@ -7,6 +7,8 @@ import json
 
 from Implementacja.Entities.Forest import Forest
 from Implementacja.Entities.Tree import Tree
+from timeit import default_timer as timer
+import matplotlib.pylab as plt
 
 
 def read_classes_and_attributes(filepath):
@@ -106,7 +108,6 @@ def find_most_common_value_in_column(df, column_name, continuous_attributes):
 
 def attribute_ranking_by_count(data_file, names_file, no_trees=100):
     data = get_training_and_eval_sets(data_file, names_file, frac_arg=1)
-    # data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=1)
     continuous_attributes = data[2]
     data = data[0]
     attributes_ranking = {}
@@ -125,7 +126,6 @@ def attribute_ranking_by_count(data_file, names_file, no_trees=100):
 
 def attribute_ranking_by_attribute_poisoning(data_file, names_file, no_trees=100):
     data = get_training_and_eval_sets(data_file, names_file, frac_arg=(8 / 10))
-    # data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=1)
     continuous_attributes = data[2]
     train_data = data[0]
     test_data = data[1]
@@ -142,21 +142,13 @@ def attribute_ranking_by_attribute_poisoning(data_file, names_file, no_trees=100
     control_sample_results = []
     for tree in trained_models:
         control_sample_results.append(get_prediction_results(tree, test_data, if_print=False))
-    # print(f"=== RESULTS FOR CONTROL SAMPLE ===")
-    # print(f"min = {min(control_sample_results)} | mean = {mean(control_sample_results)} |"
-    #       f" max = {max(control_sample_results)}")
     attributes_ranking['control'] = mean(control_sample_results)
-    mean_results = []
     for column in train_data.columns:
         if column != 'class':
             poisoned_test_df = randomly_permute_column(test_data, column)
             attribute_poison_results = []
             for tree in trained_models:
                 attribute_poison_results.append(get_prediction_results(tree, poisoned_test_df, if_print=False))
-            # print(f"=== RESULTS FOR TEST SAMPLE FOR ATTRIBUTE: {column} ===")
-            # print(
-            #     f"min = {min(attribute_poison_results)} | mean = {mean(attribute_poison_results)} |"
-            #     f" max = {max(attribute_poison_results)}")
             attributes_ranking[column] = mean(attribute_poison_results)
 
     attributes_ranking = sorted(attributes_ranking.items(), key=lambda x: x[1], reverse=True)
@@ -164,8 +156,8 @@ def attribute_ranking_by_attribute_poisoning(data_file, names_file, no_trees=100
 
 
 def main_task_for_tree():
-    data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names', frac_arg=0.8)
-    # data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=0.8)
+    data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names', frac_arg=(4/7))
+    # data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=(8/10))
     continuous_attributes = data[2]
     tree = Tree(data[0], continuous_attributes)
     tree.root = tree.generate_tree(tree.S)
@@ -188,6 +180,11 @@ def get_prediction_results(predicting_obj, test_data, if_print=True):
     incorrect = 0
     error = 0
     error_samples = []
+    FP = {}
+    FN = {}
+    TP = {}
+    TN = {}
+    classes = predicting_obj.list_of_possible_classes()
     for index, row in test_data.iterrows():
         try:
             prediction = predicting_obj.predict(row)
@@ -197,30 +194,147 @@ def get_prediction_results(predicting_obj, test_data, if_print=True):
             continue
         if prediction == row['class']:
             correct += 1
+            if not row['class'] in TP:
+                TP[row['class']] = 0
+            TP[row['class']] += 1
+            for class_ in classes:
+                if class_ != prediction:
+                    if not class_ in TN:
+                        TN[class_] = 0
+                    TN[class_] += 1
         else:
             incorrect += 1
+            if not row['class'] in FN:
+                FN[row['class']] = 0
+            FN[row['class']] += 1
+
+            if not prediction in FP:
+                FP[prediction] = 0
+            FP[prediction] += 1
     if if_print:
-        print(f"Correct = {correct} | Incorrect = {incorrect} | Score = {correct / (correct + incorrect)}")
-        print(f"Error = {error}")
+        print(f"Correct = {correct} | Incorrect = {incorrect} | Overall_accuracy = {correct / (correct + incorrect)}")
+        for key in TP:
+            print(f"    ========= {key} =========")
+            TP_i = TP[key]
+            FN_i = FN[key]
+            FP_i = FP[key]
+            TN_i = TN[key]
+            print(f"        TP = {TP_i} | FN = {FN_i} | FP = {FP_i} | TN = {TN_i}")
+            print(f"        TPR = {TP_i/(TP_i + FN_i)}")
+            print(f"        TNR = {TN_i/(TN_i + FP_i)}")
+            print(f"        PPV = {TP_i/(TP_i + FP_i)}")
+            print(f"        ACC = {(TP_i + TN_i) / (TP_i + TN_i + FP_i + FN_i)}")
+            print(f"        F1 = {2*TP_i/(2*TP_i + FP_i + FN_i)}")
+        print(f" Error = {error}")
         print("============= FINISHED =============")
     return correct / (correct + incorrect)
 
 
+def calculate_timing_performance(bins):
+    # first for discrete data
+    data = get_training_and_eval_sets('../Data/Car/car.data', '../Data/Car/car.c45-names', frac_arg=1)
+    df = data[0]
+    test_data = df.head(100)
+    elapsed_creation_time_cars = {}
+    elapsed_prediction_time_cars = {}
+    bin_size = df.shape[0] / bins
+    for i in range(bins):
+        frac = (i + 1) / bin_size
+        if frac > 1:
+            frac = 1
+        train_data = df.sample(frac=frac, random_state=np.random.RandomState())
+        start = timer()
+        tree = Tree(train_data)
+        tree.root = tree.generate_tree(tree.S)
+        end = timer()
+        elapsed_creation_time_cars[train_data.shape[0]] = end - start
+        elapsed_time = 0
+        for index, row in test_data.iterrows():
+            start = timer()
+            tree.predict(row)
+            end = timer()
+            elapsed_time += end - start
+        elapsed_prediction_time_cars[train_data.shape[0]] = elapsed_time
+
+    lists = sorted(elapsed_creation_time_cars.items())  # sorted by key, return a list of tuples
+    x, y = zip(*lists)  # unpack a list of pairs into two tuples
+
+    plt.plot(x, y)
+    plt.xlabel("Training set size")
+    plt.ylabel("Tree generation time")
+    plt.show()
+
+    lists = sorted(elapsed_prediction_time_cars.items())  # sorted by key, return a list of tuples
+
+    x, y = zip(*lists)  # unpack a list of pairs into two tuples
+
+    plt.plot(x, y)
+    plt.xlabel("Training set size")
+    plt.ylabel("Sample prediction time")
+    plt.show()
+
+    data = get_training_and_eval_sets('../Data/adult/adult.data', '../Data/adult/adult.names', frac_arg=1)
+    continuous_attributes = data[2]
+    df = data[0]
+    test_data = df.head(100)
+    elapsed_creation_time_adult = {}
+    elapsed_prediction_time_adult = {}
+    bin_size = df.shape[0] / bins
+    for i in range(bins):
+        frac = (i + 1) / bin_size
+        if frac > 1:
+            frac = 1
+        train_data = df.sample(frac=frac, random_state=np.random.RandomState())
+        start = timer()
+        tree = Tree(train_data, continuous_attributes)
+        tree.root = tree.generate_tree(tree.S)
+        end = timer()
+        elapsed_creation_time_adult[train_data.shape[0]] = end - start
+        elapsed_time = 0
+        for index, row in test_data.iterrows():
+            start = timer()
+            tree.predict(row)
+            end = timer()
+            elapsed_time += end - start
+        elapsed_prediction_time_adult[train_data.shape[0]] = elapsed_time
+
+    lists = sorted(elapsed_creation_time_adult.items())  # sorted by key, return a list of tuples
+    x, y = zip(*lists)  # unpack a list of pairs into two tuples
+
+    plt.plot(x, y)
+    plt.xlabel("Training set size")
+    plt.ylabel("Tree generation time")
+    plt.show()
+
+    lists = sorted(elapsed_prediction_time_adult.items())  # sorted by key, return a list of tuples
+
+    x, y = zip(*lists)  # unpack a list of pairs into two tuples
+
+    plt.plot(x, y)
+    plt.xlabel("Training set size")
+    plt.ylabel("Sample prediction time")
+    plt.show()
+
+    return [elapsed_creation_time_cars, elapsed_prediction_time_cars,
+            elapsed_creation_time_adult, elapsed_prediction_time_adult]
+
+
 if __name__ == '__main__':
-    print("=============================== ATTRIBUTE RANKING FOR CAR DATABASE ===============================")
-    for i in range(10):
-        attribute_ranking_by_count('../Data/Car/car.data', '../Data/Car/car.c45-names', no_trees=1000)
-
-    print("=============================== ATTRIBUTE RANKING FOR ADULT DATABASE ===============================")
-    for i in range(10):
-        attribute_ranking_by_count('../Data/adult/adult.data', '../Data/adult/adult.names', no_trees=1000)
-    # print("=============================== ATTRIBUTE RANKING BY POISONING FOR CAR DATABASE"
-    #       " ===============================")
-    # for i in range(10):
-    #     attribute_ranking_by_attribute_poisoning('../Data/Car/car.data', '../Data/Car/car.c45-names', no_trees=1000)
-    #
-    # print("=============================== ATTRIBUTE RANKING BY POISONING FOR ADULT DATABASE"
-    #       " ===============================")
-    # for i in range(10):
-    #     attribute_ranking_by_attribute_poisoning('../Data/adult/adult.data', '../Data/adult/adult.names', no_trees=1000)
-
+    main_task_for_tree()
+#calculate_timing_performance(100)
+# print("=============================== ATTRIBUTE RANKING FOR CAR DATABASE ===============================")
+# for i in range(10):
+#     attribute_ranking_by_count('../Data/Car/car.data', '../Data/Car/car.c45-names', no_trees=1000)
+#
+# print("=============================== ATTRIBUTE RANKING FOR ADULT DATABASE ===============================")
+# for i in range(10):
+#     attribute_ranking_by_count('../Data/adult/adult.data', '../Data/adult/adult.names', no_trees=1000)
+# print("=============================== ATTRIBUTE RANKING BY POISONING FOR CAR DATABASE"
+#       " ===============================")
+# for i in range(10):
+#     attribute_ranking_by_attribute_poisoning('../Data/Car/car.data', '../Data/Car/car.c45-names', no_trees=1000)
+#
+# print("=============================== ATTRIBUTE RANKING BY POISONING FOR ADULT DATABASE"
+#       " ===============================")
+# for i in range(10):
+#     attribute_ranking_by_attribute_poisoning('../Data/adult/adult.data', '../Data/adult/adult.names', no_trees=1000)
